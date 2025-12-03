@@ -33,22 +33,28 @@ Aplikasi web untuk memprediksi dan memvalidasi kualitas udara berdasarkan parame
 
 ### 🎯 Prediksi Kualitas Udara Real-Time
 - Validasi kualitas udara berdasarkan 4 parameter utama:
-  - **Suhu (°C)** - TEMP dari dataset Beijing
-  - **Titik Embun (DEWP)** - Dew Point Temperature
-  - **Tekanan Udara (mb)** - PRES (Atmospheric Pressure)
-  - **Kecepatan Angin (m/s)** - WSPM (Wind Speed)
+  - **Suhu (°C)** - Range: -20°C sampai 40°C
+  - **Kelembapan (DEWP)** - Range: -40 sampai 30
+  - **Tekanan Udara (mb)** - Range: 990 sampai 1045 mb
+  - **Kecepatan Angin (m/s)** - Range: 0 sampai 15 m/s
+- **Validasi input ketat** - menolak nilai di luar range
 - Hasil prediksi dengan **probabilitas** untuk setiap kelas
 - **Confidence Score** berdasarkan probabilitas tertinggi
 
 ### 📊 Dashboard Riwayat Lengkap
 - Lihat semua riwayat validasi sebelumnya
+- **Simpan histori hanya untuk user yang login**
+- User tanpa login tetap bisa prediksi (tanpa simpan)
 - **Filter** berdasarkan kualitas (Baik/Sedang/Buruk)
 - **Pencarian** berdasarkan tanggal, skor, atau suhu
 - **Statistik ringkas**: rata-rata skor, skor tertinggi, total prediksi
 
 ### 🔐 Autentikasi Aman
-- Login dengan **Google OAuth 2.0**
+- Login **Manual** dengan email & password
+- **Signup** untuk pendaftaran user baru
+- Login dengan **Google OAuth 2.0** (opsional)
 - Autentikasi berbasis **JWT Token**
+- Password terenkripsi dengan **bcrypt**
 - Penyimpanan data user di PostgreSQL
 
 ### 🎨 UI/UX Modern
@@ -77,11 +83,12 @@ Aplikasi web untuk memprediksi dan memvalidasi kualitas udara berdasarkan parame
 
 ### Backend
 | Teknologi | Versi | Keterangan |
-|-----------|-------|------------|
+|-----------|-------|-----------|
 | Node.js | 18+ | Runtime |
 | Express | 4.18.2 | Web framework |
 | PostgreSQL | 15+ | Database |
 | JWT | 9.0.2 | Authentication |
+| bcryptjs | 2.4.3 | Password hashing |
 | google-auth-library | 9.4.1 | Google verification |
 
 ### Machine Learning (Python)
@@ -307,6 +314,8 @@ prediksi-kualitas-udara/
 ### Authentication
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
+| `POST` | `/api/auth/signup` | Registrasi user baru |
+| `POST` | `/api/auth/login` | Login dengan email & password |
 | `POST` | `/api/auth/google` | Login dengan Google OAuth |
 | `GET` | `/api/auth/me` | Ambil info user yang login |
 | `POST` | `/api/auth/logout` | Logout user |
@@ -346,18 +355,21 @@ prediksi-kualitas-udara/
   - Sedang: 99.829 (24.3%)
   - Buruk: 117.086 (28.4%)
 
-### Parameter Input
-| Parameter | Nama Asli | Range Dataset |
+### Parameter Input (Validasi Ketat)
+| Parameter | Nama Asli | Range Valid |
 |-----------|-----------|---------------|
-| Suhu | TEMP | -17°C sampai 41°C |
-| Titik Embun | DEWP | -40 sampai 28 |
-| Tekanan | PRES | 991 - 1042 mb |
-| Kec. Angin | WSPM | 0 - 13 m/s |
+| Suhu | TEMP | -20°C sampai 40°C |
+| Kelembapan | DEWP | -40 sampai 30 |
+| Tekanan | PRES | 990 - 1045 mb |
+| Kec. Angin | WSPM | 0 - 15 m/s |
+
+> ⚠️ **Catatan**: Input di luar range akan ditolak oleh API dengan pesan error
 
 ### Model Machine Learning
 - **Algoritma**: Random Forest Classifier
-- **n_estimators**: 400
-- **max_depth**: 18
+- **n_estimators**: 100
+- **max_depth**: 15
+- **Akurasi**: ~62%
 - **Preprocessing**: MinMaxScaler + SMOTE Oversampling
 
 ---
