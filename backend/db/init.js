@@ -24,20 +24,19 @@ const createTables = async () => {
     console.log('✅ Table "users" created/verified');
 
     // Tabel Predictions - untuk menyimpan riwayat prediksi kualitas udara
+    // Catatan: Jika perlu reset tabel, uncomment baris DROP di bawah
+    // await client.query(`DROP TABLE IF EXISTS predictions CASCADE;`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS predictions (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        aqi INTEGER,
-        pm25 REAL,
-        pm10 REAL,
-        o3 REAL,
-        no2 REAL,
-        so2 REAL,
-        co REAL,
-        category VARCHAR(100),
-        location VARCHAR(255),
-        notes TEXT,
+        suhu REAL NOT NULL,
+        kelembapan REAL NOT NULL,
+        tekanan REAL NOT NULL,
+        kecepatan_angin REAL NOT NULL,
+        kualitas VARCHAR(50) NOT NULL,
+        score INTEGER,
+        confidence REAL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);

@@ -1,16 +1,132 @@
 import express from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import {
   findUserByEmail,
   findUserByGoogleId,
   createGoogleUser,
   updateGoogleUser,
+  createLocalUser,
   createHistoryLog,
 } from '../db/queries.js';
 
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// POST /api/auth/signup - Daftar akun baru (local)
+router.post('/signup', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validasi input
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Nama, email, dan password harus diisi' });
+    }
+
+    if (!email.includes('@')) {
+      return res.status(400).json({ message: 'Email tidak valid' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password minimal 6 karakter' });
+    }
+
+    // Cek apakah email sudah terdaftar
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email sudah terdaftar. Silakan login atau gunakan email lain.' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    // Buat user baru
+    const user = await createLocalUser({ email, name, passwordHash });
+
+    // Log aktivitas
+    await createHistoryLog(user.id, 'SIGNUP', { ip: req.ip });
+
+    res.status(201).json({
+      message: 'Pendaftaran berhasil! Silakan login dengan akun Anda.',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ 
+      message: 'Gagal mendaftar',
+      error: error.message 
+    });
+  }
+});
+
+// POST /api/auth/login - Login dengan email & password (local)
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validasi input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email dan password harus diisi' });
+    }
+
+    // Cari user berdasarkan email
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ message: 'Email atau password salah' });
+    }
+
+    // Cek apakah user terdaftar dengan provider lain (Google)
+    if (user.provider === 'google' && !user.password_hash) {
+      return res.status(401).json({ 
+        message: 'Akun ini terdaftar dengan Google. Silakan login dengan Google.' 
+      });
+    }
+
+    // Verifikasi password
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Email atau password salah' });
+    }
+
+    // Buat JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email,
+        name: user.name 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Log aktivitas
+    await createHistoryLog(user.id, 'LOGIN', { ip: req.ip });
+
+    res.json({
+      message: 'Login berhasil',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        provider: user.provider,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'Gagal login',
+      error: error.message 
+    });
+  }
+});
 
 // POST /api/auth/google - Login dengan Google OAuth
 router.post('/google', async (req, res) => {

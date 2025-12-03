@@ -9,7 +9,11 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const navigate = useNavigate();
+
+  // Backend API URL
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -36,19 +40,32 @@ export default function SignupPage() {
 
     setLoading(true);
     setError("");
+    setSuccess("");
 
-    // Simulasi request signup
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    // Simpan ke localStorage (demo)
-    localStorage.setItem("user", JSON.stringify({
-      name,
-      email,
-      signupTime: new Date().toISOString(),
-    }));
+      const data = await response.json();
 
-    setLoading(false);
-    navigate("/");
+      if (response.ok) {
+        setSuccess(data.message || "Pendaftaran berhasil! Silakan login.");
+        // Redirect ke halaman login setelah 2 detik
+        setTimeout(() => {
+          navigate("/login");
+        }, 2000);
+      } else {
+        setError(data.message || "Pendaftaran gagal. Silakan coba lagi.");
+      }
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Gagal terhubung ke server. Pastikan backend berjalan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -124,6 +141,12 @@ export default function SignupPage() {
               </div>
             )}
 
+            {success && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium">
+                {success}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -143,12 +166,6 @@ export default function SignupPage() {
               <a href="/login" className="font-bold text-teal-600 hover:text-teal-500">
                 Masuk di sini
               </a>
-            </p>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-slate-500 text-center">
-              Demo: Data disimpan ke localStorage, bukan database
             </p>
           </div>
         </div>

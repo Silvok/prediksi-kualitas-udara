@@ -29,18 +29,29 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // Simulasi request login
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    // Simpan ke localStorage (demo)
-    localStorage.setItem("user", JSON.stringify({
-      email,
-      name: email.split("@")[0],
-      loginTime: new Date().toISOString(),
-    }));
+      const data = await response.json();
 
-    setLoading(false);
-    navigate("/");
+      if (response.ok) {
+        // Simpan user dan token ke localStorage
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+        navigate("/");
+      } else {
+        setError(data.message || "Login gagal. Silakan coba lagi.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Gagal terhubung ke server. Pastikan backend berjalan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Google Login Success Handler
@@ -163,12 +174,6 @@ export default function LoginPage() {
               <a href="/signup" className="font-bold text-teal-600 hover:text-teal-500">
                 Daftar di sini
               </a>
-            </p>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-slate-500 text-center">
-              Demo: Gunakan email apa saja untuk login (tidak ada validasi backend)
             </p>
           </div>
         </div>

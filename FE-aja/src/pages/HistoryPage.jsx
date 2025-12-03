@@ -1,62 +1,113 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import HistoryCard from "../components/HistoryCard";
 import InputField from "../components/InputField";
 
-const MOCK_HISTORY = [
-	{
-		id: 1,
-		date: "2025-12-01",
-		temp: "28",
-		humidity: "65",
-		pressure: "1013",
-		windSpeed: "5",
-		quality: "Baik",
-		score: "82",
-		icon: "✅",
-	},
-	{
-		id: 2,
-		date: "2025-11-30",
-		temp: "24",
-		humidity: "72",
-		pressure: "1010",
-		windSpeed: "8",
-		quality: "Baik",
-		score: "78",
-		icon: "✅",
-	},
-	{
-		id: 3,
-		date: "2025-11-29",
-		temp: "31",
-		humidity: "45",
-		pressure: "1025",
-		windSpeed: "3",
-		quality: "Kurang",
-		score: "45",
-		icon: "❌",
-	},
-	{
-		id: 4,
-		date: "2025-11-28",
-		temp: "26",
-		humidity: "58",
-		pressure: "1015",
-		windSpeed: "12",
-		quality: "Sedang",
-		score: "68",
-		icon: "⚠️",
-	},
-];
+// API URL
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export default function HistoryPage() {
+	const navigate = useNavigate();
 	const [query, setQuery] = useState("");
 	const [filterQuality, setFilterQuality] = useState("semua");
+	const [historyData, setHistoryData] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+	const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+	// Cek login dan fetch history saat halaman dimuat
+	useEffect(() => {
+		const token = localStorage.getItem("token");
+		if (!token) {
+			setIsLoggedIn(false);
+			setLoading(false);
+			return;
+		}
+		setIsLoggedIn(true);
+		fetchHistory(token);
+	}, []);
+
+	const fetchHistory = async (token) => {
+		try {
+			setLoading(true);
+			const response = await fetch(`${API_URL}/api/predictions`, {
+				headers: {
+					"Authorization": `Bearer ${token}`,
+				},
+			});
+
+			if (response.status === 401) {
+				// Token expired atau tidak valid
+				localStorage.removeItem("token");
+				localStorage.removeItem("user");
+				setIsLoggedIn(false);
+				setLoading(false);
+				return;
+			}
+
+			if (!response.ok) {
+				throw new Error("Gagal mengambil data riwayat");
+			}
+
+			const data = await response.json();
+			
+			// Transform data dari database ke format yang sesuai UI
+			const transformed = data.predictions.map((item) => ({
+				id: item.id,
+				date: new Date(item.created_at).toLocaleDateString("id-ID", {
+					year: "numeric",
+					month: "short",
+					day: "numeric",
+				}),
+				dateRaw: item.created_at,
+				temp: item.suhu?.toString() || "0",
+				humidity: item.kelembapan?.toString() || "0",
+				pressure: item.tekanan?.toString() || "0",
+				windSpeed: item.kecepatan_angin?.toString() || "0",
+				quality: item.kualitas || "Unknown",
+				score: item.score?.toString() || "0",
+				confidence: item.confidence || 0,
+				icon: item.kualitas === "Baik" ? "✅" : item.kualitas === "Sedang" ? "⚠️" : "❌",
+			}));
+
+			setHistoryData(transformed);
+		} catch (err) {
+			console.error("Fetch history error:", err);
+			setError(err.message);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleDelete = async (id) => {
+		const token = localStorage.getItem("token");
+		if (!token) return;
+
+		if (!confirm("Apakah Anda yakin ingin menghapus riwayat ini?")) return;
+
+		try {
+			const response = await fetch(`${API_URL}/api/predictions/${id}`, {
+				method: "DELETE",
+				headers: {
+					"Authorization": `Bearer ${token}`,
+				},
+			});
+
+			if (response.ok) {
+				setHistoryData((prev) => prev.filter((item) => item.id !== id));
+			} else {
+				alert("Gagal menghapus riwayat");
+			}
+		} catch (err) {
+			console.error("Delete error:", err);
+			alert("Terjadi kesalahan saat menghapus");
+		}
+	};
 
 	const list = useMemo(() => {
 		const q = query.trim().toLowerCase();
-		return MOCK_HISTORY
+		return historyData
 			.filter((it) => {
 				if (filterQuality !== "semua" && it.quality !== filterQuality) return false;
 				if (!q) return true;
@@ -67,8 +118,8 @@ export default function HistoryPage() {
 					it.temp.toLowerCase().includes(q)
 				);
 			})
-			.sort((a, b) => (a.date < b.date ? 1 : -1));
-	}, [query, filterQuality]);
+			.sort((a, b) => (a.dateRaw < b.dateRaw ? 1 : -1));
+	}, [query, filterQuality, historyData]);
 
 	const stats = useMemo(() => {
 		if (list.length === 0) return { avg: 0, best: "-", total: 0 };
@@ -77,6 +128,52 @@ export default function HistoryPage() {
 		const best = Math.max(...scores);
 		return { avg, best, total: list.length };
 	}, [list]);
+
+	// Jika belum login, tampilkan pesan
+	if (!isLoggedIn) {
+		return (
+			<div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-teal-100">
+				<Header />
+				<main className="max-w-5xl mx-auto px-4 py-8">
+					<div className="p-12 bg-gradient-to-br from-white via-gray-50 to-gray-100 rounded-2xl shadow-lg border-2 border-dashed border-gray-300 text-center">
+						<div className="text-6xl mb-4">🔐</div>
+						<h3 className="text-2xl font-black text-slate-900 mb-2">
+							Login Diperlukan
+						</h3>
+						<p className="text-slate-600 font-medium max-w-sm mx-auto mb-6">
+							Silakan login terlebih dahulu untuk melihat riwayat validasi prediksi Anda.
+						</p>
+						<button
+							onClick={() => navigate("/login")}
+							className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:scale-105"
+						>
+							🔑 Login Sekarang
+						</button>
+					</div>
+				</main>
+			</div>
+		);
+	}
+
+	// Loading state
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-teal-100">
+				<Header />
+				<main className="max-w-5xl mx-auto px-4 py-8">
+					<div className="p-12 bg-white rounded-2xl shadow-lg text-center">
+						<div className="text-6xl mb-4 animate-spin">⏳</div>
+						<h3 className="text-2xl font-black text-slate-900 mb-2">
+							Memuat Riwayat...
+						</h3>
+						<p className="text-slate-600 font-medium">
+							Mohon tunggu sebentar
+						</p>
+					</div>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-teal-50 via-cyan-50 to-teal-100">
@@ -168,23 +265,23 @@ export default function HistoryPage() {
 								className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl shadow-sm text-sm text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition cursor-pointer hover:border-teal-300"
 							>
 								<option value="semua">📋 Semua Status</option>
-								<option value="Baik">✅ Baik (Score Tinggi)</option>
-								<option value="Sedang">⚠️ Sedang (Score Menengah)</option>
-								<option value="Kurang">❌ Kurang (Score Rendah)</option>
+								<option value="Baik">✅ Baik (Kualitas Tinggi)</option>
+								<option value="Sedang">⚠️ Sedang (Kualitas Menengah)</option>
+								<option value="Buruk">❌ Buruk (Kualitas Rendah)</option>
 							</select>
 						</div>
 					</div>
 
 					{/* Quick Filter Pills */}
 					<div className="flex flex-wrap gap-2">
-						{["semua", "Baik", "Sedang", "Kurang"].map((status) => {
-							const icons = { semua: "📋", Baik: "✅", Sedang: "⚠️", Kurang: "❌" };
-							const labels = { semua: "Semua", Baik: "Baik", Sedang: "Sedang", Kurang: "Kurang" };
+						{["semua", "Baik", "Sedang", "Buruk"].map((status) => {
+							const icons = { semua: "📋", Baik: "✅", Sedang: "⚠️", Buruk: "❌" };
+							const labels = { semua: "Semua", Baik: "Baik", Sedang: "Sedang", Buruk: "Buruk" };
 							const colors = {
 								semua: "from-gray-500 to-gray-600",
 								Baik: "from-green-500 to-emerald-600",
 								Sedang: "from-yellow-500 to-orange-600",
-								Kurang: "from-red-500 to-rose-600",
+								Buruk: "from-red-500 to-rose-600",
 							};
 
 							return (
@@ -235,6 +332,7 @@ export default function HistoryPage() {
 								style={{
 									animation: `fadeInUp 0.5s ease-out ${idx * 0.1}s both`,
 								}}
+								className="relative group"
 							>
 								<HistoryCard
 									date={h.date}
@@ -245,7 +343,16 @@ export default function HistoryPage() {
 									quality={h.quality}
 									score={h.score}
 									icon={h.icon}
+									confidence={h.confidence}
 								/>
+								{/* Tombol Hapus */}
+								<button
+									onClick={() => handleDelete(h.id)}
+									className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg shadow-lg"
+									title="Hapus riwayat"
+								>
+									🗑️
+								</button>
 							</div>
 						))
 					)}
@@ -264,7 +371,7 @@ export default function HistoryPage() {
 								const colorMap = {
 									Baik: "from-green-500 to-emerald-500",
 									Sedang: "from-yellow-500 to-orange-500",
-									Kurang: "from-red-500 to-rose-500",
+									Buruk: "from-red-500 to-rose-500",
 								};
 
 								return (

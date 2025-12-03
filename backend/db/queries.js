@@ -56,14 +56,14 @@ export const createLocalUser = async ({ email, name, passwordHash }) => {
 
 // ==================== PREDICTION QUERIES ====================
 
-// Simpan prediksi baru
+// Simpan prediksi baru (data cuaca)
 export const createPrediction = async (userId, predictionData) => {
-  const { aqi, pm25, pm10, o3, no2, so2, co, category, location, notes } = predictionData;
+  const { suhu, kelembapan, tekanan, kecepatan_angin, kualitas, score, confidence } = predictionData;
   const result = await pool.query(
-    `INSERT INTO predictions (user_id, aqi, pm25, pm10, o3, no2, so2, co, category, location, notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `INSERT INTO predictions (user_id, suhu, kelembapan, tekanan, kecepatan_angin, kualitas, score, confidence)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [userId, aqi, pm25, pm10, o3, no2, so2, co, category, location, notes]
+    [userId, suhu, kelembapan, tekanan, kecepatan_angin, kualitas, score, confidence]
   );
   return result.rows[0];
 };
