@@ -39,8 +39,7 @@ export default function Header() {
       <div className="header-container">
         <div className="logo">
           <div className="logo-icon" aria-hidden>
-            <span className="sun">🌤️</span>
-            <div className="cloud">☁️</div>
+            <img src="/assets/logo.png" alt="Logo" className="w-8 h-8" />
           </div>
           <div className="brand">
             <h1 style={{ cursor: "pointer" }} onClick={() => go("/")}>Skywise</h1>

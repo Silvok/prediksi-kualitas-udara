@@ -44,14 +44,11 @@ export default function BottomNav() {
           <span className="absolute inset-0 bg-teal-100 rounded-2xl -z-10 shadow-inner transition-all"></span>
         )}
 
-        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 2v20M5 8h14"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        {/* Thermometer Icon */}
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="4" width="4" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
+          <circle cx="12" cy="18" r="4" stroke="currentColor" strokeWidth="1.6" />
+          <line x1="12" y1="8" x2="12" y2="15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         </svg>
         <span className="text-xs font-medium">Prediksi</span>
       </Link>
