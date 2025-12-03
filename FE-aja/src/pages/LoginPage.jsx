@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import Header from "../components/Header";
 
 export default function LoginPage() {
@@ -8,6 +9,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  // Backend API URL
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -37,6 +41,40 @@ export default function LoginPage() {
 
     setLoading(false);
     navigate("/");
+  };
+
+  // Google Login Success Handler
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: credentialResponse.credential }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+        navigate("/");
+      } else {
+        setError(data.message || "Login dengan Google gagal.");
+      }
+    } catch (err) {
+      console.error("Google login error:", err);
+      setError("Gagal terhubung ke server. Pastikan backend berjalan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Google Login Error Handler
+  const handleGoogleError = () => {
+    setError("Login dengan Google gagal. Silakan coba lagi.");
   };
 
   return (
@@ -97,6 +135,27 @@ export default function LoginPage() {
               {loading ? "Memproses..." : "Masuk"}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="flex items-center my-6">
+            <div className="flex-1 border-t border-gray-200"></div>
+            <span className="px-4 text-sm text-slate-500">atau</span>
+            <div className="flex-1 border-t border-gray-200"></div>
+          </div>
+
+          {/* Google Login Button */}
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              theme="outline"
+              size="large"
+              text="signin_with"
+              shape="rectangular"
+              logo_alignment="left"
+              width="100%"
+            />
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-600">
